@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { log } from "firebase-functions/logger";
 
 // Inicializa o firebase-admin app
 const app = admin.initializeApp();
@@ -89,4 +90,52 @@ export const salvarDadosPessoais = functions
 
     // Mensagem com informações sobre o resultado da função
     return JSON.stringify(cResponse);
+  });
+
+export const NotifyNewEmergence = functions
+  .region("southamerica-east1").firestore
+  .document("emergencias/{userId}")
+  .onCreate(async (snap) => {
+    let status = false;
+    const newValue = snap.data();
+
+    // Log para ver os dados da Emergencia
+    console.log(newValue);
+
+    const onProfissionais = (await colProfissionais
+      .where("status", "==", true).get());
+
+    // Pegar os dados de todos os Profissionais onlines
+    onProfissionais.docs.forEach(async (doc) => {
+      const fcmToken = doc.data().fcmToken;
+
+      // Log para ver o fcmToken do Profissional
+      console.log(fcmToken);
+      if (fcmToken != undefined) {
+        try {
+          const message = {
+            data: {
+              nome: newValue.nome,
+              telefone: newValue.telefone,
+              fotos: newValue.fotos,
+              status: newValue.status,
+              descricao: newValue.descricao,
+              dataHora: newValue.dataHora,
+            },
+            token: fcmToken,
+          };
+          // Log para ver a montagem da mensagem
+          console.log(message);
+          const messageId = await app.messaging().send(message);
+
+          // Log para ver o Id da mensagem enviada
+          console.log(messageId);
+          status = true;
+        } catch (e) {
+          log(e);
+        }
+      }
+    });
+
+    return JSON.stringify({ status: status });
   });
