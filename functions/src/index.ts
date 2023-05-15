@@ -1,6 +1,5 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { log } from "firebase-functions/logger";
 
 // Inicializa o firebase-admin app
 const app = admin.initializeApp();
@@ -8,7 +7,7 @@ const app = admin.initializeApp();
 // Inicializa o Firestore Database
 const db = app.firestore();
 
-// Salva acesso a coleção "profissionais" no Firestore Database
+// Salva acesso às coleções no Firestore Database
 const colProfissionais = db.collection("profissionais");
 // const colEmergencia = db.collection("emergencia");
 const colRespostas = db.collection("respostas");
@@ -45,7 +44,7 @@ function hasAccountData(data: Profissional) {
   }
 }
 
-// * Salvar dados pessoais do profissional ao criar sua conta
+// * Salvar dados do profissional ao criar sua conta
 export const salvarDadosPessoais = functions
 
   // Seleção da região que a função irá ficar
@@ -75,7 +74,7 @@ export const salvarDadosPessoais = functions
           cResponse.status = "ERROR";
           cResponse.message =
             "Não foi possível inserir o perfil do profissional";
-          cResponse.payload = JSON.stringify({ errorDetail: "doc.id" });
+          cResponse.payload = JSON.stringify({ errorDetail: doc.id });
         }
       } catch (e) {
         let exMessage;
@@ -94,75 +93,78 @@ export const salvarDadosPessoais = functions
     return JSON.stringify(cResponse);
   });
 
+// * Mandar notificação de nova emergência
 export const NotifyNewEmergency = functions
+
+  // Seleção da região que a função irá ficar
   .region("southamerica-east1")
+
+  // Seleçõa do tipo de chamda da função
   .firestore.document("emergencias/{userId}")
   .onCreate(async (snap) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    // Documento que foi adcionado agora
     const newValue = snap.data();
 
-    // Log para ver os dados da Emergencia
-    console.log(newValue);
-
+    // Seleção de profissionais com o status disponível
     const onProfissionais = await colProfissionais
       .where("status", "==", true)
       .get();
 
-    // Pegar os dados de todos os Profissionais onlines
-    onProfissionais.docs.forEach(async (doc) => {
-      const fcmToken = doc.data().fcmToken;
+    // Agrupamento dos FCMTokens dos profissionais
+    const tokens = onProfissionais.docs.map((doc) => doc.data().fcmToken);
 
-      // Log para ver o fcmToken do Profissional
-      console.log(fcmToken);
-      if (fcmToken != undefined) {
-        try {
-          const message = {
-            data: {
-              nome: newValue.nome,
-              telefone: newValue.telefone,
-              fotos: newValue.fotos,
-              status: "NOVA",
-              descricao: newValue.descricao,
-              dataHora: newValue.dataHora,
-              id: snap.id,
-            },
-            token: fcmToken,
-          };
-          // Log para ver a montagem da mensagem
-          console.log(message);
-          const messageId = await app.messaging().send(message);
+    // Dados que serão mandados aos profissionais
+    const message = {
+      data: {
+        nome: newValue.nome,
+        telefone: newValue.telefone,
+        fotos: newValue.fotos,
+        status: "NOVA",
+        descricao: newValue.descricao,
+        dataHora: newValue.dataHora,
+        id: snap.id,
+      },
+      tokens: tokens,
+    };
 
-          // Log para ver o Id da mensagem enviada
-          console.log(messageId);
-        } catch (e) {
-          log(e);
-        }
+    // Tentativa de mandar a notificação
+    try {
+      const messageId = await app.messaging().sendMulticast(message);
+      if (messageId != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Emergência notificada aos profissionais";
+        cResponse.payload = JSON.stringify({
+          messageSuccess: messageId.successCount,
+          messageFailure: messageId.failureCount,
+          messageResponses: messageId.responses,
+        });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível notificar os profissionais";
+        cResponse.payload = JSON.stringify({ errorDetail: messageId });
       }
-    });
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao notificar profissionais:", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
   });
 
-// TODO: Utilizar multicast na funcao acima
-// exports.OnCreateEmergence = functions.firestore
-//   .document("energencias/{userId}")
-//   .onCreate(async (snap, context) => {
-//     const newValue = snap.data();
-
-//     const res = await colProfissionais.where("status", "==", true).get();
-//     const tokens = res.docs.map((doc) => doc.data().fcmToken);
-//     console.log(tokens);
-//     const message = {
-//       data: {
-//         text: "Nova Emergencia",
-//       },
-//       tokens: tokens,
-//       newValue,
-//     };
-//     try {
-//       await app.messaging().sendMulticast(message);
-//     } catch (e) {
-//       console.log("Erro", e);
-//     }
-//   });
-
+// * Adcionar a resposta do chamado de emergência
 export const responderChamado = functions
 
   // Seleção da região que a função irá ficar
