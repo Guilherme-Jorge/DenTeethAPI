@@ -9,7 +9,9 @@ const db = app.firestore();
 
 // Salva acesso às coleções no Firestore Database
 const colProfissionais = db.collection("profissionais");
-// const colEmergencia = db.collection("emergencia");
+
+const colEmergencias = db.collection("emergencias");
+
 const colRespostas = db.collection("respostas");
 
 type Profissional = {
@@ -20,6 +22,15 @@ type Profissional = {
   curriculo: string;
   fcmToken: string | undefined;
   uid: string;
+};
+
+type Emergencia = {
+  nome: string;
+  telefone: string;
+  fotos: string;
+  descricao: string;
+  status: string;
+  dataHora: admin.firestore.Timestamp;
 };
 
 type CustomResponse = {
@@ -37,6 +48,21 @@ function hasAccountData(data: Profissional) {
     data.curriculo != undefined &&
     data.uid != undefined &&
     data.fcmToken != undefined
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function hasEmergenciaData(data: Emergencia) {
+  if (
+    data.nome != undefined &&
+    data.telefone != undefined &&
+    data.fotos != undefined &&
+    data.descricao != undefined &&
+    data.status != undefined &&
+    data.dataHora != undefined
   ) {
     return true;
   } else {
@@ -125,7 +151,7 @@ export const NotifyNewEmergency = functions
         nome: newValue.nome,
         telefone: newValue.telefone,
         fotos: newValue.fotos,
-        status: "NOVA",
+        status: newValue.status,
         descricao: newValue.descricao,
         dataHora: newValue.dataHora,
         id: snap.id,
@@ -203,6 +229,59 @@ export const responderChamado = functions
       cResponse.status = "ERROR";
       cResponse.message = "Erro ao incluir resposta - Verificar Logs";
       cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
+
+export const enviarEmergencia = functions
+  .region("southamerica-east1")
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    // Tentativa de adição de dados no banco de dados Firebase Firestore
+    const emergencia: Emergencia = {
+      nome: data.nome,
+      telefone: data.telefone,
+      fotos: data.fotos,
+      descricao: data.descricao,
+      status: "NOVA",
+      dataHora: admin.firestore.Timestamp.now(),
+    };
+
+    if (hasEmergenciaData(data)) {
+      try {
+        const doc = await colEmergencias.add(data);
+
+        if (doc.id != undefined) {
+          cResponse.status = "SUCCESS";
+          cResponse.message = "Emergência inserida com sucesso";
+          cResponse.payload = JSON.stringify({ docId: doc.id });
+        } else {
+          cResponse.status = "ERROR";
+          cResponse.message =
+            "Não foi possível inserir a emergência";
+          cResponse.payload = JSON.stringify({ errorDetail: doc.parent });
+        }
+      } catch (e) {
+        let exMessage;
+        if (e instanceof Error) {
+          exMessage = e.message;
+        }
+        functions.logger
+          .error("Erro ao incluir emergência:", emergencia.telefone);
+        functions.logger
+          .error("Exception: ", exMessage);
+        cResponse.status = "ERROR";
+        cResponse.message = "Erro ao incluir emergência - Verificar Logs";
+        cResponse.payload = null;
+      }
     }
 
     // Mensagem com informações sobre o resultado da função
