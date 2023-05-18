@@ -30,7 +30,7 @@ type Emergencia = {
   fotos: string;
   descricao: string;
   status: string;
-  dataHora: admin.firestore.Timestamp;
+  dataHora: string;
 };
 
 type CustomResponse = {
@@ -120,14 +120,14 @@ export const salvarDadosPessoais = functions
   });
 
 // * Mandar notificação de nova emergência
-export const NotifyNewEmergency = functions
+export const notifyNovaEmergencia = functions
 
   // Seleção da região que a função irá ficar
   .region("southamerica-east1")
 
   // Seleçõa do tipo de chamda da função
   .firestore.document("emergencias/{userId}")
-  .onCreate(async (snap) => {
+  .onCreate(async (snap, context) => {
     const cResponse: CustomResponse = {
       status: "ERROR",
       message: "Dados não fornecidos",
@@ -154,7 +154,7 @@ export const NotifyNewEmergency = functions
         status: newValue.status,
         descricao: newValue.descricao,
         dataHora: newValue.dataHora,
-        id: snap.id,
+        id: context.params.userId,
       },
       tokens: tokens,
     };
@@ -252,12 +252,12 @@ export const enviarEmergencia = functions
       fotos: data.fotos,
       descricao: data.descricao,
       status: "NOVA",
-      dataHora: admin.firestore.Timestamp.now(),
+      dataHora: admin.firestore.Timestamp.now().toDate().toISOString(),
     };
 
-    if (hasEmergenciaData(data)) {
+    if (hasEmergenciaData(emergencia)) {
       try {
-        const doc = await colEmergencias.add(data);
+        const doc = await colEmergencias.add(emergencia);
 
         if (doc.id != undefined) {
           cResponse.status = "SUCCESS";
