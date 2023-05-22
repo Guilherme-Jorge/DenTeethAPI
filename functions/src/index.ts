@@ -207,11 +207,18 @@ export const responderChamado = functions
       payload: undefined,
     };
 
+    const dataProfissional = await colProfissionais
+      .where("uid", "==", data.profissional)
+      .get();
+
     const resposta = {
       dataHora: admin.firestore.Timestamp.now().toDate().toISOString(),
       emergencia: data.emergencia,
       profissional: data.profissional,
       status: data.status,
+      nome: dataProfissional.docs[0].data().nome,
+      telefone: dataProfissional.docs[0].data().telefone,
+      // avatar: dataProfissional.docs[0].data().avatar,
     };
 
     // Tentativa de adição de dados no banco de dados Firebase Firestore
