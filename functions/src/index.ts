@@ -353,3 +353,60 @@ export const updateTokenProfissional = functions
     // Mensagem com informações sobre o resultado da função
     return JSON.stringify(cResponse);
   });
+
+export const notificarProfissional = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    const dataProfissional = await colProfissionais
+      .where("uid", "==", data.profissional)
+      .get();
+
+    // Dados que serão mandados aos profissionais
+    const message = {
+      data: {
+        texto: "Mensagem do telefone recebida *3*",
+      },
+      token: dataProfissional.docs[0].data().fcmToken,
+    };
+
+    // Tentativa de mandar a notificação
+    try {
+      const messageId = await app.messaging().send(message);
+      if (messageId != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Emergência notificada aos profissionais";
+        cResponse.payload = JSON.stringify({
+          messageId: messageId,
+        });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível notificar os profissionais";
+        cResponse.payload = JSON.stringify({ errorDetail: messageId });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao notificar profissionais:", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
