@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 
 // Inicializa o firebase-admin app
 const app = admin.initializeApp();
@@ -19,6 +20,8 @@ type Profissional = {
   email: string;
   telefone: string;
   endereco1: string;
+  endereco2: string | undefined;
+  endereco3: string | undefined;
   curriculo: string;
   fcmToken: string | undefined;
   uid: string;
@@ -27,10 +30,11 @@ type Profissional = {
 type Emergencia = {
   nome: string;
   telefone: string;
-  fotos: string;
+  fotos: [string, string, string];
   descricao: string;
   status: string;
-  dataHora: string;
+  dataHora: Timestamp;
+  fcmToken: string | undefined;
 };
 
 type CustomResponse = {
@@ -62,7 +66,8 @@ function hasEmergenciaData(data: Emergencia) {
     data.fotos != undefined &&
     data.descricao != undefined &&
     data.status != undefined &&
-    data.dataHora != undefined
+    data.dataHora != undefined &&
+    data.fcmToken != undefined
   ) {
     return true;
   } else {
@@ -150,7 +155,9 @@ export const notifyNovaEmergencia = functions
       data: {
         nome: newValue.nome,
         telefone: newValue.telefone,
-        fotos: newValue.fotos,
+        fotos1: newValue.fotos[0],
+        fotos2: newValue.fotos[1],
+        fotos3: newValue.fotos[2],
         status: newValue.status,
         descricao: newValue.descricao,
         dataHora: newValue.dataHora,
@@ -212,7 +219,7 @@ export const responderChamado = functions
       .get();
 
     const resposta = {
-      dataHora: admin.firestore.Timestamp.now().toDate().toISOString(),
+      dataHora: admin.firestore.Timestamp.now(),
       emergencia: data.emergencia,
       profissional: data.profissional,
       status: data.status,
@@ -265,7 +272,8 @@ export const enviarEmergencia = functions
       fotos: data.fotos,
       descricao: data.descricao,
       status: "NOVA",
-      dataHora: admin.firestore.Timestamp.now().toDate().toISOString(),
+      dataHora: admin.firestore.Timestamp.now(),
+      fcmToken: data.fcmToken,
     };
 
     if (hasEmergenciaData(emergencia)) {
