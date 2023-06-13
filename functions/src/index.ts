@@ -43,6 +43,16 @@ type CustomResponse = {
   payload: unknown;
 };
 
+type NotificacaoMapa = {
+  app: string;
+  profissional: string | undefined;
+  fcmToken: string | undefined;
+  titulo: string;
+  endereco: string;
+  lat: string;
+  lng: string;
+}
+
 function hasAccountData(data: Profissional) {
   if (
     data.nome != undefined &&
@@ -388,6 +398,75 @@ export const notificarProfissional = functions
         texto: "Mensagem do telefone recebida *3*",
       },
       token: dataProfissional.docs[0].data().fcmToken,
+    };
+
+    // Tentativa de mandar a notificação
+    try {
+      const messageId = await app.messaging().send(message);
+      if (messageId != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Emergência notificada aos profissionais";
+        cResponse.payload = JSON.stringify({
+          messageId: messageId,
+        });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível notificar os profissionais";
+        cResponse.payload = JSON.stringify({ errorDetail: messageId });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao notificar profissionais:", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
+export const EnviarDadosMapa = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data: NotificacaoMapa) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    let dataProfissional;
+
+    if (data.app == "socorrista") {
+      dataProfissional = await colProfissionais
+        .where("uid", "==", data.profissional).get();
+    }
+
+    // Dados que serão mandados aos profissionais
+    const message = {
+      notification: {
+        title: "DenTeeth",
+        body: "Você recebeu a localização do atendimento!",
+      },
+      data: {
+        type: "mapa",
+        titulo: data.titulo,
+        endereco: data.endereco,
+        lat: data.lat,
+        lng: data.lng,
+      },
+      token: data.app == "socorrista" ?
+        dataProfissional?.docs[0].data().fcmToken : data.fcmToken,
     };
 
     // Tentativa de mandar a notificação
