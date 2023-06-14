@@ -13,6 +13,8 @@ const colProfissionais = db.collection("profissionais");
 
 const colEmergencias = db.collection("emergencias");
 
+const colAvaliacao = db.collection("avaliacao");
+
 const colRespostas = db.collection("respostas");
 
 type Profissional = {
@@ -492,6 +494,51 @@ export const enviarDadosMapa = functions
       functions.logger.error("Erro ao notificar profissionais:", exMessage);
       cResponse.status = "ERROR";
       cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
+export const enviarAvaliacao = functions
+  .region("southamerica-east1")
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    // Tentativa de adição de dados no banco de dados Firebase Firestore
+    const avaliacao = {
+      notaAvaliacao: data.notaAvaliacao,
+      textoAvalicao: data.textoAvaliacao,
+      notaApp: data.notaApp,
+      textoApp: data.textoApp,
+      profissional: data.profissional,
+    };
+
+    try {
+      const doc = await colAvaliacao.add(avaliacao);
+
+      if (doc.id != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Avaliação inserida com sucesso";
+        cResponse.payload = JSON.stringify({ docId: doc.id });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível inserir a avaliação";
+        cResponse.payload = JSON.stringify({ errorDetail: doc.parent });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Exception: ", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao incluir avaliação - Verificar Logs";
       cResponse.payload = null;
     }
 
