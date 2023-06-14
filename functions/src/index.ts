@@ -43,15 +43,15 @@ type CustomResponse = {
   payload: unknown;
 };
 
-type NotificacaoMapa = {
-  app: string;
-  profissional: string | undefined;
-  fcmToken: string | undefined;
-  titulo: string;
-  endereco: string;
-  lat: string;
-  lng: string;
-}
+// type NotificacaoMapa = {
+//   app: string;
+//   profissional: string | undefined;
+//   fcmToken: string | undefined;
+//   titulo: string;
+//   endereco: string;
+//   lat: string;
+//   lng: string;
+// }
 
 function hasAccountData(data: Profissional) {
   if (
@@ -171,6 +171,7 @@ export const notifyNovaEmergencia = functions
         status: newValue.status,
         descricao: newValue.descricao,
         dataHora: newValue.dataHora,
+        fcmToken: newValue.fcmToken,
         id: context.params.userId,
       },
       tokens: tokens,
@@ -395,7 +396,7 @@ export const notificarProfissional = functions
     // Dados que serão mandados aos profissionais
     const message = {
       data: {
-        texto: "Mensagem do telefone recebida *3*",
+        texto: "Mensagem do telefone recebida.",
       },
       token: dataProfissional.docs[0].data().fcmToken,
     };
@@ -429,7 +430,7 @@ export const notificarProfissional = functions
     return JSON.stringify(cResponse);
   });
 
-export const EnviarDadosMapa = functions
+export const enviarDadosMapa = functions
 
   // Seleção da região que a função irá ficar
   .region("southamerica-east1")
@@ -438,7 +439,7 @@ export const EnviarDadosMapa = functions
   .runWith({ enforceAppCheck: false })
 
   // Seleçõa do tipo de chamda da função
-  .https.onCall(async (data: NotificacaoMapa) => {
+  .https.onCall(async (data) => {
     const cResponse: CustomResponse = {
       status: "ERROR",
       message: "Dados não fornecidos",
