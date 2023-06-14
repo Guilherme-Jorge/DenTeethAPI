@@ -171,6 +171,7 @@ export const notifyNovaEmergencia = functions
         status: newValue.status,
         descricao: newValue.descricao,
         dataHora: newValue.dataHora,
+        fcmToken: newValue.fcmToken,
         id: context.params.userId,
       },
       tokens: tokens,
@@ -395,7 +396,7 @@ export const notificarProfissional = functions
     // Dados que serão mandados aos profissionais
     const message = {
       data: {
-        texto: "Mensagem do telefone recebida *3*",
+        texto: "Mensagem do telefone recebida.",
       },
       token: dataProfissional.docs[0].data().fcmToken,
     };
