@@ -700,3 +700,61 @@ export const alterarStatusProfissional = functions
     // Mensagem com informações sobre o resultado da função
     return JSON.stringify(cResponse);
   });
+
+export const notificarAvaliacao = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    // Dados que serão mandados aos profissionais
+    const message = {
+      notification: {
+        title: "DenTeeth",
+        body: "Avalie o atendimento agora!",
+      },
+      data: {
+        profissional: data.profissional,
+      },
+      token: data.fcmToken,
+    };
+
+    // Tentativa de mandar a notificação
+    try {
+      const messageId = await app.messaging().send(message);
+      if (messageId != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Avaliação enviada para o Socorrista";
+        cResponse.payload = JSON.stringify({
+          messageId: messageId,
+        });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível notificar o Socorrista";
+        cResponse.payload = JSON.stringify({ errorDetail: messageId });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao notificar profissionais:", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
