@@ -25,6 +25,9 @@ type Profissional = {
   endereco2: string | undefined;
   endereco3: string | undefined;
   curriculo: string;
+  perfil: string | undefined;
+  status: string;
+  criado: string | undefined;
   fcmToken: string | undefined;
   uid: string;
 };
@@ -44,16 +47,6 @@ type CustomResponse = {
   message: string | unknown;
   payload: unknown;
 };
-
-// type NotificacaoMapa = {
-//   app: string;
-//   profissional: string | undefined;
-//   fcmToken: string | undefined;
-//   titulo: string;
-//   endereco: string;
-//   lat: string;
-//   lng: string;
-// }
 
 function hasAccountData(data: Profissional) {
   if (
@@ -130,6 +123,112 @@ export const salvarDadosPessoais = functions
         cResponse.message = "Erro ao incluir profissional - Verificar Logs";
         cResponse.payload = null;
       }
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
+export const adcionarFotoPerfil = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    const profissional = await colProfissionais
+      .where("uid", "==", data.uid)
+      .get();
+
+    // Tentativa de adição de dados no banco de dados Firebase Firestore
+    try {
+      const doc = await colProfissionais
+        .doc(profissional.docs[0].id)
+        .set({ perfil: data.uri }, { merge: true });
+      if (doc != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Perfil de profissional editado com sucesso";
+        cResponse.payload = JSON.stringify({ docId: doc.writeTime });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível editar o perfil do profissional";
+        cResponse.payload = JSON.stringify({
+          errorDetail: profissional.docs[0].id,
+        });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao editar perfil:", profissional);
+      functions.logger.error("Exception: ", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message =
+        "Erro ao editar perfil do profissional - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
+export const finalizarCriarConta = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    const profissional = await colProfissionais
+      .where("uid", "==", data.uid)
+      .get();
+
+    // Tentativa de adição de dados no banco de dados Firebase Firestore
+    try {
+      const doc = await colProfissionais
+        .doc(profissional.docs[0].id)
+        .set({ criado: data.criado }, { merge: true });
+      if (doc != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Perfil de profissional editado com sucesso";
+        cResponse.payload = JSON.stringify({ docId: doc.writeTime });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível editar o perfil do profissional";
+        cResponse.payload = JSON.stringify({
+          errorDetail: profissional.docs[0].id,
+        });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao editar perfil:", profissional);
+      functions.logger.error("Exception: ", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message =
+        "Erro ao editar perfil do profissional - Verificar Logs";
+      cResponse.payload = null;
     }
 
     // Mensagem com informações sobre o resultado da função
@@ -238,7 +337,7 @@ export const responderChamado = functions
       status: data.status,
       nome: dataProfissional.docs[0].data().nome,
       telefone: dataProfissional.docs[0].data().telefone,
-      // avatar: dataProfissional.docs[0].data().avatar,
+      perfil: dataProfissional.docs[0].data().perfil,
     };
 
     // Tentativa de adição de dados no banco de dados Firebase Firestore
@@ -399,6 +498,8 @@ export const notificarProfissional = functions
     const message = {
       data: {
         texto: "Mensagem do telefone recebida.",
+        telefone: data.telefone,
+        fcmToken: data.fcmToken,
       },
       token: dataProfissional.docs[0].data().fcmToken,
     };
@@ -517,6 +618,7 @@ export const enviarAvaliacao = functions
       notaApp: data.notaApp,
       textoApp: data.textoApp,
       profissional: data.profissional,
+      fcmToken: data.fcmToken,
     };
 
     try {
