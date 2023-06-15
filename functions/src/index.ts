@@ -621,6 +621,7 @@ export const enviarAvaliacao = functions
       textoApp: data.textoApp,
       profissional: data.profissional,
       fcmToken: data.fcmToken,
+      dataHora: admin.firestore.Timestamp.now(),
     };
 
     try {
@@ -762,3 +763,102 @@ export const notificarAvaliacao = functions
     return JSON.stringify(cResponse);
   });
 
+export const notificarReavaliacao = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    // Dados que serão mandados aos profissionais
+    const message = {
+      notification: {
+        title: "DenTeeth",
+        body: "Re-Avalie o atendimento do Profissional",
+      },
+      data: {
+        type: "reavaliacao",
+        mensagemProf: data.mensagemProf,
+        avaliacaoId: data.avaliacaoId,
+        texto: "Re-Avalie o atendimento do Profissional",
+        profissional: data.profissional,
+      },
+      token: data.fcmToken,
+    };
+
+    // Tentativa de mandar a notificação
+    try {
+      const messageId = await app.messaging().send(message);
+      if (messageId != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Reavaliação enviada para o Socorrista";
+        cResponse.payload = JSON.stringify({
+          messageId: messageId,
+        });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível notificar o Socorrista";
+        cResponse.payload = JSON.stringify({ errorDetail: messageId });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao notificar profissionais:", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
+export const enviarReavaliacao = functions
+  .region("southamerica-east1")
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    try {
+      const doc = await colAvaliacao
+        .doc(data.avaliacaoId)
+        .set({ notaAvaliacao: data.notaAvaliacao,
+          textoAvalicao: data.textoAvaliacao }, { merge: true });
+
+      if (doc != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Avaliação inserida com sucesso";
+        cResponse.payload = JSON.stringify({ docId: doc });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível inserir a avaliação";
+        cResponse.payload = JSON.stringify({ errorDetail: doc });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Exception: ", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao incluir avaliação - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
