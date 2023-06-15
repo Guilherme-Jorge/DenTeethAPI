@@ -264,14 +264,12 @@ export const notifyNovaEmergencia = functions
     // Dados que serão mandados aos profissionais
     const message = {
       data: {
-        nome: newValue.nome,
-        telefone: newValue.telefone,
+        type: "novaEmergencia",
         fotos1: newValue.fotos[0],
         fotos2: newValue.fotos[1],
         fotos3: newValue.fotos[2],
         status: newValue.status,
         descricao: newValue.descricao,
-        dataHora: newValue.dataHora,
         fcmToken: newValue.fcmToken,
         id: context.params.userId,
       },
@@ -497,8 +495,10 @@ export const notificarProfissional = functions
     // Dados que serão mandados aos profissionais
     const message = {
       data: {
+        type: "telefone",
         texto: "Mensagem do telefone recebida.",
         telefone: data.telefone,
+        nome: data.nome,
         fcmToken: data.fcmToken,
       },
       token: dataProfissional.docs[0].data().fcmToken,
@@ -564,10 +564,12 @@ export const enviarDadosMapa = functions
       },
       data: {
         type: "mapa",
+        text: "Você recebeu a localização do atendimento!",
         titulo: data.titulo,
         endereco: data.endereco,
         lat: data.lat,
         lng: data.lng,
+        fcmToken: data.app == "socorrista" ? data.fcmToken : "",
       },
       token: data.app == "socorrista" ?
         dataProfissional?.docs[0].data().fcmToken : data.fcmToken,
@@ -700,3 +702,63 @@ export const alterarStatusProfissional = functions
     // Mensagem com informações sobre o resultado da função
     return JSON.stringify(cResponse);
   });
+
+export const notificarAvaliacao = functions
+
+  // Seleção da região que a função irá ficar
+  .region("southamerica-east1")
+
+  // Habilitar a checagem de aplicativo ou não
+  .runWith({ enforceAppCheck: false })
+
+  // Seleçõa do tipo de chamda da função
+  .https.onCall(async (data) => {
+    const cResponse: CustomResponse = {
+      status: "ERROR",
+      message: "Dados não fornecidos",
+      payload: undefined,
+    };
+
+    // Dados que serão mandados aos profissionais
+    const message = {
+      notification: {
+        title: "DenTeeth",
+        body: "Avalie o atendimento agora!",
+      },
+      data: {
+        type: "avaliacao",
+        texto: "Avalie o atendimento agora!",
+        profissional: data.profissional,
+      },
+      token: data.fcmToken,
+    };
+
+    // Tentativa de mandar a notificação
+    try {
+      const messageId = await app.messaging().send(message);
+      if (messageId != undefined) {
+        cResponse.status = "SUCCESS";
+        cResponse.message = "Avaliação enviada para o Socorrista";
+        cResponse.payload = JSON.stringify({
+          messageId: messageId,
+        });
+      } else {
+        cResponse.status = "ERROR";
+        cResponse.message = "Não foi possível notificar o Socorrista";
+        cResponse.payload = JSON.stringify({ errorDetail: messageId });
+      }
+    } catch (e) {
+      let exMessage;
+      if (e instanceof Error) {
+        exMessage = e.message;
+      }
+      functions.logger.error("Erro ao notificar profissionais:", exMessage);
+      cResponse.status = "ERROR";
+      cResponse.message = "Erro ao notificar usuários - Verificar Logs";
+      cResponse.payload = null;
+    }
+
+    // Mensagem com informações sobre o resultado da função
+    return JSON.stringify(cResponse);
+  });
+
