@@ -264,6 +264,7 @@ export const notifyNovaEmergencia = functions
     // Dados que serão mandados aos profissionais
     const message = {
       data: {
+        type: "novaEmergencia",
         nome: newValue.nome,
         telefone: newValue.telefone,
         fotos1: newValue.fotos[0],
@@ -271,7 +272,6 @@ export const notifyNovaEmergencia = functions
         fotos3: newValue.fotos[2],
         status: newValue.status,
         descricao: newValue.descricao,
-        dataHora: newValue.dataHora,
         fcmToken: newValue.fcmToken,
         id: context.params.userId,
       },
@@ -497,6 +497,7 @@ export const notificarProfissional = functions
     // Dados que serão mandados aos profissionais
     const message = {
       data: {
+        type: "telefone",
         texto: "Mensagem do telefone recebida.",
         telefone: data.telefone,
         fcmToken: data.fcmToken,
