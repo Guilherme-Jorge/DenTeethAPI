@@ -265,8 +265,6 @@ export const notifyNovaEmergencia = functions
     const message = {
       data: {
         type: "novaEmergencia",
-        nome: newValue.nome,
-        telefone: newValue.telefone,
         fotos1: newValue.fotos[0],
         fotos2: newValue.fotos[1],
         fotos3: newValue.fotos[2],
@@ -500,6 +498,7 @@ export const notificarProfissional = functions
         type: "telefone",
         texto: "Mensagem do telefone recebida.",
         telefone: data.telefone,
+        nome: data.nome,
         fcmToken: data.fcmToken,
       },
       token: dataProfissional.docs[0].data().fcmToken,
@@ -565,10 +564,12 @@ export const enviarDadosMapa = functions
       },
       data: {
         type: "mapa",
+        text: "Você recebeu a localização do atendimento!",
         titulo: data.titulo,
         endereco: data.endereco,
         lat: data.lat,
         lng: data.lng,
+        fcmToken: data.app == "socorrista" ? data.fcmToken : "",
       },
       token: data.app == "socorrista" ?
         dataProfissional?.docs[0].data().fcmToken : data.fcmToken,
@@ -726,6 +727,7 @@ export const notificarAvaliacao = functions
       },
       data: {
         type: "avaliacao",
+        texto: "Avalie o atendimento agora!",
         profissional: data.profissional,
       },
       token: data.fcmToken,
