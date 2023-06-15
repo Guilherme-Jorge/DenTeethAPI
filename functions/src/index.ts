@@ -724,6 +724,7 @@ export const notificarAvaliacao = functions
         body: "Avalie o atendimento agora!",
       },
       data: {
+        type: "avaliacao",
         profissional: data.profissional,
       },
       token: data.fcmToken,
